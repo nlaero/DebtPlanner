@@ -1,0 +1,17 @@
+# Your saved plan stays on this computer. These files hold balances and which plan was last opened.
+DebtPayoff_Sample.json
+last_plan.txt
+own_plan.txt
+viewing_sample.txt
+tutorial_seen.txt
+
+# Rebuilds from the source. Do not store them in git.
+__pycache__/
+*.pyc
+build/
+build-*/
+dist/
+dist-*/
+
+# Compiled installers
+installer/**/*.exe

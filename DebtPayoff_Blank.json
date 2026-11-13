@@ -1,0 +1,11 @@
+{
+  "debts": [],
+  "settings": {
+    "frequency": "biweekly",
+    "first_pay_date": "2026-01-15",
+    "base_extra": 0.0,
+    "projection_periods": 120
+  },
+  "extras_by_period": {},
+  "archives": {}
+}
