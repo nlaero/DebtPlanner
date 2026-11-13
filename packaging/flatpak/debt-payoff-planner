@@ -1,0 +1,4 @@
+#!/bin/sh
+pyver=$(python3 -c 'import sys; print("%s.%s" % sys.version_info[:2])')
+export PYTHONPATH="/app/lib/python${pyver}/site-packages${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 /app/share/debt-payoff-planner/debt_payoff_app.py "$@"

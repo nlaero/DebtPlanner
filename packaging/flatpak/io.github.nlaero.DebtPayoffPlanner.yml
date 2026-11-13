@@ -1,0 +1,29 @@
+id: io.github.nlaero.DebtPayoffPlanner
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+command: debt-payoff-planner
+finish-args:
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+  - --filesystem=home
+  - --talk-name=ca.desrt.dconf
+  - --env=DCONF_USER_CONFIG_DIR=.config/dconf
+modules:
+  - name: debt-payoff-planner
+    buildsystem: simple
+    build-commands:
+      - python3 -m pip install --prefix=${FLATPAK_DEST} customtkinter==6.0.0 openpyxl pillow darkdetect packaging
+      - install -Dm644 debt_payoff_app.py ${FLATPAK_DEST}/share/debt-payoff-planner/debt_payoff_app.py
+      - install -Dm644 sample_plan.json ${FLATPAK_DEST}/share/debt-payoff-planner/sample_plan.json
+      - install -Dm644 debt_payoff.ico ${FLATPAK_DEST}/share/debt-payoff-planner/debt_payoff.ico
+      - install -Dm644 debt_payoff.png ${FLATPAK_DEST}/share/debt-payoff-planner/debt_payoff.png
+      - install -Dm644 debt_payoff.png ${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/io.github.nlaero.DebtPayoffPlanner.png
+      - install -Dm644 packaging/flatpak/io.github.nlaero.DebtPayoffPlanner.desktop ${FLATPAK_DEST}/share/applications/io.github.nlaero.DebtPayoffPlanner.desktop
+      - install -Dm644 packaging/flatpak/io.github.nlaero.DebtPayoffPlanner.metainfo.xml ${FLATPAK_DEST}/share/metainfo/io.github.nlaero.DebtPayoffPlanner.metainfo.xml
+      - install -Dm755 packaging/flatpak/debt-payoff-planner ${FLATPAK_DEST}/bin/debt-payoff-planner
+    sources:
+      - type: dir
+        path: ../..

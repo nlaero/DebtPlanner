@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.nlaero.DebtPayoffPlanner</id>
+  <name>Debt Payoff Planner</name>
+  <summary>Plan payoff dates, extra payments, and interest</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary</project_license>
+  <description>
+    <p>Plan how long debts take to pay off, including extra payments and interest.</p>
+  </description>
+  <launchable type="desktop-id">io.github.nlaero.DebtPayoffPlanner.desktop</launchable>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="2.03" date="2026-10-31"/>
+  </releases>
+</component>

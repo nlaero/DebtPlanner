@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Debt Payoff Planner
+Comment=Plan payoff dates, extra payments, and interest
+Exec=debt-payoff-planner
+Icon=io.github.nlaero.DebtPayoffPlanner
+Terminal=false
+Categories=Office;Finance;
+StartupWMClass=debt_payoff_app.py

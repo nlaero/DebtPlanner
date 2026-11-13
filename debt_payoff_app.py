@@ -22,6 +22,37 @@ import os
 import sys
 import time
 
+# Windows keeps Segoe UI. Linux does not ship that face, so the same
+# tuples would fall back to a mismatched font and change the layout.
+UI_FONT_FAMILY = "Segoe UI" if sys.platform.startswith("win") else "DejaVu Sans"
+
+
+def choose_ui_font_family(root=None):
+    """Pick a font that is installed. Windows stays on Segoe UI."""
+    global UI_FONT_FAMILY
+    if sys.platform.startswith("win"):
+        UI_FONT_FAMILY = "Segoe UI"
+        return UI_FONT_FAMILY
+    preferred = ("Noto Sans", "DejaVu Sans", "Liberation Sans", "Ubuntu", "Cantarell", "FreeSans")
+    available = set()
+    if root is not None:
+        try:
+            available = set(tkfont.families(root))
+        except tk.TclError:
+            available = set()
+    for name in preferred:
+        if name in available:
+            UI_FONT_FAMILY = name
+            return UI_FONT_FAMILY
+    UI_FONT_FAMILY = "DejaVu Sans"
+    return UI_FONT_FAMILY
+
+
+def ui_font(size, *styles):
+    if styles:
+        return (UI_FONT_FAMILY, size, *styles)
+    return (UI_FONT_FAMILY, size)
+
 try:
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
@@ -236,7 +267,7 @@ class AppSection(ctk.CTkFrame):
         title = ctk.CTkLabel(
             band,
             text=text,
-            font=("Segoe UI", 18, "bold"),
+            font=ui_font( 18, "bold"),
             text_color=ink,
             fg_color="transparent",
             anchor="w",
@@ -273,10 +304,10 @@ class AppLabel(ctk.CTkLabel):
                  role=None, **kwargs):
         self._role = role or style or "body"
         fonts = {
-            "Header.TLabel": ("Segoe UI", 13, "bold"),
-            "OverviewValue.TLabel": ("Segoe UI", 13, "bold"),
-            "OverviewCaption.TLabel": ("Segoe UI", 12),
-            "OverviewHero.TLabel": ("Segoe UI", 19, "bold"),
+            "Header.TLabel": ui_font( 13, "bold"),
+            "OverviewValue.TLabel": ui_font( 13, "bold"),
+            "OverviewCaption.TLabel": ui_font( 12),
+            "OverviewHero.TLabel": ui_font( 19, "bold"),
         }
         colors = {
             "Header.TLabel": COLORS["section_title"],
@@ -299,7 +330,7 @@ class AppLabel(ctk.CTkLabel):
             master,
             text=content,
             textvariable=textvariable,
-            font=fonts.get(style, ("Segoe UI", 12)),
+            font=fonts.get(style, ui_font( 12)),
             text_color=colors.get(style, foreground or COLORS["text"]),
             fg_color=background or "transparent",
             anchor=anchor or "w",
@@ -349,7 +380,7 @@ class AppButton(ctk.CTkButton):
             corner_radius=6,
             height=28 if compact else 32,
             width=width if not compact else max(96, width),
-            font=("Segoe UI", 12 if compact else 13, "bold"),
+            font=ui_font( 12 if compact else 13, "bold"),
         )
 
 
@@ -360,7 +391,7 @@ class AppEntry(ctk.CTkEntry):
             textvariable=textvariable,
             width=max(90, int(width) * 8),
             height=32,
-            font=("Segoe UI", 13),
+            font=ui_font( 13),
             fg_color=COLORS["field"],
             border_color=COLORS["border"],
             text_color=COLORS["text"],
@@ -377,7 +408,7 @@ class AppCombo(ctk.CTkComboBox):
             state="readonly" if state == "readonly" else state,
             width=max(150, int(width) * 8 + 40),
             height=32,
-            font=("Segoe UI", 13),
+            font=ui_font( 13),
             fg_color=COLORS["field"],
             border_color=COLORS["border"],
             button_color=COLORS["button"],
@@ -425,7 +456,7 @@ class AppCheck(ctk.CTkCheckBox):
             hover_color=COLORS["button_hover"],
             text_color=COLORS["text"],
             checkmark_color=COLORS["button_text"],
-            font=("Segoe UI", 12),
+            font=ui_font( 12),
         )
 
 
@@ -2421,7 +2452,7 @@ class DebtPayoffApp:
                 button.configure(
                     text_color=COLORS["tab_active_text"] if active else COLORS["tab_inactive_text"],
                     height=selected_h if active else rest_h,
-                    font=("Segoe UI", 13 if active else 12, "bold"),
+                    font=ui_font( 13 if active else 12, "bold"),
                 )
                 if COLORS.get("tab_edge"):
                     button.configure(
@@ -2616,20 +2647,21 @@ class DebtPayoffApp:
     def _tk_font(self, size, *styles):
         scaled = max(1, int(round(float(size) * self._ui_scale())))
         if styles:
-            return ("Segoe UI", scaled, *styles)
-        return ("Segoe UI", scaled)
+            return ui_font( scaled, *styles)
+        return ui_font( scaled)
 
     def _data_family(self):
-        """Small-text cut of Segoe UI, for grids of numbers."""
+        """Small-text face for grids of numbers. Windows prefers Segoe UI Variable."""
         cached = getattr(self, "_data_family_name", None)
         if cached:
             return cached
-        family = "Segoe UI"
-        try:
-            if "Segoe UI Variable Text" in set(tkfont.families(self.root)):
-                family = "Segoe UI Variable Text"
-        except tk.TclError:
-            family = "Segoe UI"
+        family = UI_FONT_FAMILY
+        if sys.platform.startswith("win"):
+            try:
+                if "Segoe UI Variable Text" in set(tkfont.families(self.root)):
+                    family = "Segoe UI Variable Text"
+            except tk.TclError:
+                family = "Segoe UI"
         self._data_family_name = family
         return family
 
@@ -2855,7 +2887,7 @@ class DebtPayoffApp:
             segmented_button_unselected_color=COLORS["tab_inactive"],
             segmented_button_unselected_hover_color=COLORS["tab_inactive_hover"],
             text_color=COLORS["tab_active_text"],
-            segmented_button_font=("Segoe UI", 12, "bold"),
+            segmented_button_font=ui_font( 12, "bold"),
             anchor="w",
             command=self._on_tab_changed,
         )
@@ -5230,7 +5262,7 @@ class DebtPayoffApp:
             button = ctk.CTkButton(
                 self.archive_year_bar,
                 text=str(year_number),
-                font=("Segoe UI", 13, "bold" if chosen else "normal"),
+                font=ui_font( 13, "bold" if chosen else "normal"),
                 fg_color=COLORS["button"] if chosen else COLORS["button_secondary"],
                 hover_color=COLORS["button_hover"] if chosen else COLORS["button_secondary_hover"],
                 text_color=COLORS["button_text"] if chosen else COLORS["button_secondary_text"],
@@ -5351,6 +5383,12 @@ class DebtPayoffApp:
         if getattr(sys, "frozen", False):
             root = os.environ.get("APPDATA") or os.path.expanduser("~")
             folder = os.path.join(root, "Debt Payoff Planner")
+            os.makedirs(folder, exist_ok=True)
+            return folder
+        if not sys.platform.startswith("win"):
+            # A deb or Flatpak copy lives in a read-only install folder.
+            root = os.environ.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"), ".config")
+            folder = os.path.join(root, "debt-payoff-planner")
             os.makedirs(folder, exist_ok=True)
             return folder
         return os.path.dirname(os.path.abspath(__file__))
@@ -5969,14 +6007,14 @@ def show_opening_splash(root):
         text=APP_NAME,
         bg=COLORS["header_bg"],
         fg=COLORS["header_fg"],
-        font=("Segoe UI", max(22, int(round(26 * scale))), "bold"),
+        font=ui_font( max(22, int(round(26 * scale))), "bold"),
     ).pack(expand=True, pady=(int(round(28 * scale)), 0))
     tk.Label(
         splash,
         text=f"Version {APP_VERSION}",
         bg=COLORS["header_bg"],
         fg=COLORS["header_fg"],
-        font=("Segoe UI", max(12, int(round(13 * scale)))),
+        font=ui_font( max(12, int(round(13 * scale)))),
     ).pack(pady=(0, int(round(36 * scale))))
     splash.update_idletasks()
     _place_splash(splash, width, height)
@@ -6028,9 +6066,34 @@ def app_icon_path():
     return None
 
 
+def app_png_path():
+    """PNG icon. Linux window icons cannot use the Windows .ico file."""
+    candidates = [os.path.join(os.path.dirname(os.path.abspath(__file__)), "debt_payoff.png")]
+    ico = app_icon_path()
+    if ico:
+        candidates.append(os.path.splitext(ico)[0] + ".png")
+    for path in candidates:
+        if path and os.path.isfile(path):
+            return path
+    return None
+
+
 def apply_window_icon(window):
+    if window is None:
+        return
+    if not sys.platform.startswith("win"):
+        png = app_png_path()
+        if not png:
+            return
+        try:
+            image = tk.PhotoImage(file=png)
+            window.iconphoto(True, image)
+            window._icon_image = image
+        except tk.TclError:
+            return
+        return
     path = app_icon_path()
-    if not path or window is None:
+    if not path:
         return
     try:
         window.iconbitmap(path)
@@ -6049,6 +6112,7 @@ def main():
     ctk.set_appearance_mode("System")
     ctk.set_default_color_theme("blue")
     root = ctk.CTk()
+    choose_ui_font_family(root)
     apply_window_icon(root)
     root.withdraw()
     splash = None

@@ -6,6 +6,7 @@ viewing_sample.txt
 tutorial_seen.txt
 
 # Rebuilds from the source. Do not store them in git.
+build-flatpak/
 __pycache__/
 *.pyc
 build/

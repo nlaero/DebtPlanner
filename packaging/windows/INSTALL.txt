@@ -1,0 +1,2 @@
+Run installer/Version 2.x/DebtPayoffPlannerSetup-2.03.exe from this repository.
+It installs Debt Payoff Planner and can replace an older version already on the computer.
