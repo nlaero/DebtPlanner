@@ -3453,6 +3453,25 @@ class DebtPayoffApp:
         )
 
     # ----- Debt management -----
+    def _debt_total_now(self, debt):
+        """Balance still owed on the payday now in effect, after that day's extra."""
+        stored = parse_amount(debt.get("current"), allow_blank=True) or 0.0
+        schedule = getattr(self, "schedule", None) or []
+        if not schedule:
+            return stored
+        anchor = parse_date(self.settings.get("balance_as_of") or self.settings.get("first_pay_date"))
+        active = current_pay_date(self.settings)
+        if anchor is None or active < anchor:
+            return stored
+        period = next((row for row in schedule if row.get("date") == active.isoformat()), None)
+        if not period:
+            return stored
+        closing = mapping_get(period.get("closings") or {}, debt.get("id"), None)
+        if closing is None:
+            return stored
+        value = parse_amount(closing, minimum=0, allow_blank=True)
+        return stored if value is None else value
+
     def refresh_debt_tree(self):
         selected_id = None
         sel = self.debt_tree.selection()
@@ -3471,19 +3490,25 @@ class DebtPayoffApp:
         _dates, _overall, payoff_by_id = debt_free_dates_by_type(
             self.debts, self.settings, extras_by_period=self.extras_by_period,
         )
-        paid = [debt for debt in self.debts if not _is_active_debt(debt)]
-        paid.sort(key=lambda debt: int(debt.get("id") or 0))
-        sorted_debts = ranked + paid
+        stored_paid = [debt for debt in self.debts if not _is_active_debt(debt)]
+        stored_paid.sort(key=lambda debt: int(debt.get("id") or 0))
+        open_debts = []
+        paid = []
+        for debt in ranked + stored_paid:
+            if self._debt_total_now(debt) < 0.5:
+                paid.append(debt)
+            else:
+                open_debts.append(debt)
         rows = []
-        for d in sorted_debts:
-            is_paid = not _is_active_debt(d)
+        for d in open_debts + paid:
+            is_paid = self._debt_total_now(d) < 0.5
             if is_paid:
                 rank_text = "—"
                 est_text = "✓"
             else:
                 rank_text = str(d.get("payoff_rank") or "")
                 est_text = format_display_date(payoff_by_id.get(d.get("id"), "Never"))
-            current = parse_amount(d.get("current"), allow_blank=True) or 0.0
+            current = self._debt_total_now(d)
             rate = parse_amount(d.get("rate"), allow_blank=True) or 0.0
             minimum = parse_amount(d.get("min_payment"), allow_blank=True) or 0.0
             due_anchor, _due_frequency = due_series(d)
@@ -3534,7 +3559,7 @@ class DebtPayoffApp:
             messagebox.showinfo("Select", "Select a debt to move.")
             return
         debt = self._debt_by_iid(sel[0])
-        if debt is None or not _is_active_debt(debt):
+        if debt is None or self._debt_total_now(debt) < 0.5:
             self.status_var.set("Only unpaid debts can be ranked")
             return
         ordered = assign_payoff_ranks(self.debts)
@@ -3562,7 +3587,7 @@ class DebtPayoffApp:
             self._debt_drag = None
             return
         self.debt_tree.selection_set(item)
-        if not _is_active_debt(debt) or getattr(self, "sample_view", False):
+        if self._debt_total_now(debt) < 0.5 or getattr(self, "sample_view", False):
             self._debt_drag = None
             return
         self._debt_drag = {"item": item, "moved": False}
@@ -3575,7 +3600,7 @@ class DebtPayoffApp:
         if not target or target == drag["item"]:
             return
         target_debt = self._debt_by_iid(target)
-        if target_debt is None or not _is_active_debt(target_debt):
+        if target_debt is None or self._debt_total_now(target_debt) < 0.5:
             return
         self.debt_tree.move(drag["item"], "", self.debt_tree.index(target))
         drag["moved"] = True
@@ -3593,7 +3618,7 @@ class DebtPayoffApp:
         ordered = []
         for item in self.debt_tree.get_children():
             debt = self._debt_by_iid(item)
-            if debt is None or not _is_active_debt(debt):
+            if debt is None or self._debt_total_now(debt) < 0.5:
                 continue
             ordered.append(debt)
         self._commit_payoff_order(ordered)
@@ -5748,7 +5773,7 @@ class DebtPayoffApp:
 Set how often you are paid, the payday your balances belong to, and the extra you can add each payday. Yearly take-home pay is optional. It feeds the income and debt-to-income figures on Overview.
 
 2. Debts
-Add each balance, rate, minimum payment, and due day. Rank 1 gets the extra payment first. Drag a row, or use Move Up and Move Down, to change that order. When a debt is paid off, its minimum joins the extra for the debts still open.
+Add each balance, rate, minimum payment, and due day. Current Balance is what remains on the payday now in effect, after that day's minimum, interest, and any extra entered on the Pay Schedule. Rank 1 gets the extra payment first. Drag a row, or use Move Up and Move Down, to change that order. When a debt is paid off, its minimum joins the extra for the debts still open.
 
 3. Pay Schedule
 Each row is one payday. Double-click a row to record an extra for that day. Archive Completed Pay Periods files past paydays. Those rows stay under Archives and do not change later.

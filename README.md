@@ -63,7 +63,7 @@ The first time the program opens, choose **View Sample Plan** or **Create New Pl
 Help → How to Use shows this same short guide inside the program.
 
 1. **Settings.** Set how often you are paid, the payday your balances belong to, and the extra you can add each payday. Yearly take-home pay is optional. It feeds the income and debt-to-income figures on Overview.
-2. **Debts.** Add each balance, rate, minimum payment, and due day. Rank 1 gets the extra payment first. Drag a row, or use Move Up and Move Down, to change that order. When a debt is paid off, its minimum joins the extra for the debts still open.
+2. **Debts.** Add each balance, rate, minimum payment, and due day. Current Balance is what remains on the payday now in effect, after that day's minimum, interest, and any extra entered on the Pay Schedule. Rank 1 gets the extra payment first. Drag a row, or use Move Up and Move Down, to change that order. When a debt is paid off, its minimum joins the extra for the debts still open.
 3. **Pay Schedule.** Each row is one payday. Double-click a row to record an extra for that day. Archive Completed Pay Periods files past paydays. Those rows stay under Archives and do not change later.
 4. **Overview, Charts, and Interest.** Overview is the snapshot: balances, payoff dates, and debt-to-income. Charts and Interest compare extra payments in rank order with minimum payments only.
 5. **Saving.** File → Save stores the plan and opens it next time.
