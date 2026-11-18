@@ -8,14 +8,14 @@
 AppId={{7C4E9A21-5B18-4F6D-A3E0-91D2C8B64F17}
 SetupIconFile=debt_payoff.ico
 AppName=Debt Payoff Planner
-AppVersion=2.03
-VersionInfoVersion=2.0.3.0
+AppVersion=2.1
+VersionInfoVersion=2.1.0.0
 AppPublisher=Debt Payoff Planner
 DefaultDirName={autopf}\Debt Payoff Planner
 DefaultGroupName=Debt Payoff Planner
 DisableProgramGroupPage=yes
 OutputDir=installer\Version 2.x
-OutputBaseFilename=DebtPayoffPlannerSetup-2.03
+OutputBaseFilename=DebtPayoffPlannerSetup-2.1
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -30,7 +30,7 @@ SetupLogging=no
 
 [Files]
 Source: "debt_payoff.ico"; DestDir: "{app}"; Flags: ignoreversion
-Source: "dist-2.03\Debt Payoff Planner\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dist-2.1\Debt Payoff Planner\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "refresh_icons.ps1"; Flags: dontcopy
 
 [Icons]

@@ -76,7 +76,7 @@ DEFAULT_SETTINGS = {
 }
 
 APP_NAME = "Debt Payoff Planner"
-APP_VERSION = "2.03"
+APP_VERSION = "2.1"
 
 # Light is the original palette. Dark follows the slate theme, with a few
 # extra shades so amounts and chart lines stay readable.

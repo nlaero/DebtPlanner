@@ -1,6 +1,6 @@
 # Debt Payoff Planner
 
-Desktop planner for payoff dates, extra payments, and interest. Version 2.03.
+Desktop planner for payoff dates, extra payments, and interest. Version 2.1.
 
 Your saved plan stays on your computer. It is not included in this repository.
 
@@ -8,7 +8,7 @@ Your saved plan stays on your computer. It is not included in this repository.
 
 ### Windows
 
-Download and run [DebtPayoffPlannerSetup-2.03.exe](installer/Version%202.x/DebtPayoffPlannerSetup-2.03.exe).
+Download and run [DebtPayoffPlannerSetup-2.1.exe](installer/Version%202.x/DebtPayoffPlannerSetup-2.1.exe).
 
 It installs Debt Payoff Planner for Windows and replaces an older copy of this program. Your last saved plan is kept.
 
@@ -23,7 +23,7 @@ sh packaging/debian/install.sh
 Or, without cloning the whole project:
 
 ```sh
-curl -L -o debt-payoff-planner.deb https://github.com/nlaero/DebtPlanner/raw/main/packaging/debian/debt-payoff-planner_2.03-1_all.deb
+curl -L -o debt-payoff-planner.deb https://github.com/nlaero/DebtPlanner/raw/main/packaging/debian/debt-payoff-planner_2.1-1_all.deb
 sudo apt install ./debt-payoff-planner.deb
 ```
 
