@@ -4919,6 +4919,8 @@ class DebtPayoffApp:
         grid = model["grid"]
         if not rows or cell_h <= 0:
             canvas._period_hits = []
+            if self._period_header_sticks(canvas):
+                self._draw_period_header(canvas, view_top)
             return
         first = max(0, int((view_top - header_h) / cell_h) - 1)
         last = min(len(rows), int((view_bottom - header_h) / cell_h) + 2)
@@ -4960,11 +4962,56 @@ class DebtPayoffApp:
                 left += width
                 canvas.create_line(left, band_top, left, band_bottom, fill=grid, tags="period-row")
         canvas._period_hits = hits
+        if self._period_header_sticks(canvas):
+            self._draw_period_header(canvas, view_top)
+
+    def _period_header_sticks(self, canvas):
+        """Pay Schedule titles stay at the top of the view. Archives keep a scrolling title."""
+        return canvas in (
+            getattr(self, "sched_canvas", None),
+            getattr(self, "sched_frozen_canvas", None),
+        )
+
+    def _draw_period_header(self, canvas, top):
+        model = getattr(canvas, "_period_model", None)
+        if not model or not model.get("headers"):
+            return
+        canvas.delete("period-header")
+        header_h = model["header_h"]
+        total_w = model["total_w"]
+        pad_x = model["pad_x"]
+        bar = model["bar"]
+        canvas.create_rectangle(
+            0, top, total_w, top + header_h,
+            fill=model["header_bg"], outline="", tags=("period", "period-header"),
+        )
+        left = 0
+        text_y = top + (header_h - bar) / 2
+        for spec in model["headers"]:
+            width = spec["width"]
+            text_x, text_anchor = self._text_anchor_x(left, width, pad_x, spec["anchor"])
+            canvas.create_text(
+                text_x, text_y, text=spec["title"], anchor=text_anchor,
+                fill=model["header_fg"], font=model["header_font"],
+                tags=("period", "period-header"),
+            )
+            left += width
+        if bar:
+            canvas.create_rectangle(
+                0, top + header_h - bar, total_w, top + header_h,
+                fill=model["bar_color"], outline="", tags=("period", "period-header"),
+            )
+        canvas.tag_raise("period-header")
 
     def _on_period_canvas_double(self, event):
         canvas = event.widget
         x = canvas.canvasx(event.x)
         y = canvas.canvasy(event.y)
+        if self._period_header_sticks(canvas):
+            model = getattr(canvas, "_period_model", None) or {}
+            header_h = model.get("header_h") or 0
+            if y < canvas.canvasy(0) + header_h:
+                return
         for left, top, right, bottom, callback in getattr(canvas, "_period_hits", ()):
             if callback and left <= x < right and top <= y < bottom:
                 callback()
@@ -5015,20 +5062,6 @@ class DebtPayoffApp:
         total_w = max(sum(widths), 1)
         total_h = header_h + cell_h * max(len(rows), 0)
         header_bg = COLORS["button_secondary"] if metrics["prominent"] else COLORS["header_bg"]
-        canvas.create_rectangle(0, 0, total_w, header_h, fill=header_bg, outline="", tags="period")
-        left = 0
-        for width, spec in zip(widths, columns):
-            text_x, text_anchor = self._text_anchor_x(left, width, pad_x, spec["header_anchor"])
-            canvas.create_text(
-                text_x, (header_h - metrics["bar"]) / 2, text=spec["title"], anchor=text_anchor,
-                fill=COLORS["header_fg"], font=metrics["header_spec"], tags="period",
-            )
-            left += width
-        if metrics["bar"]:
-            canvas.create_rectangle(
-                0, header_h - metrics["bar"], total_w, header_h,
-                fill=COLORS["tab_line"], outline="", tags="period",
-            )
         grid = COLORS["gridline"] if COLORS.get("gridline_on") else ""
         canvas._period_model = {
             "widths": widths,
@@ -5038,11 +5071,22 @@ class DebtPayoffApp:
             "total_w": total_w,
             "pad_x": pad_x,
             "grid": grid,
+            "headers": [
+                {"title": spec["title"], "anchor": spec.get("header_anchor", "w"), "width": width}
+                for width, spec in zip(widths, columns)
+            ],
+            "header_bg": header_bg,
+            "header_fg": COLORS["header_fg"],
+            "header_font": metrics["header_spec"],
+            "bar": metrics["bar"],
+            "bar_color": COLORS["tab_line"],
         }
         canvas._period_hits = []
         size = (total_w, max(total_h, 1))
         self._store_period_size(canvas, size)
         canvas.configure(scrollregion=(0, 0, size[0], size[1]))
+        if not self._period_header_sticks(canvas):
+            self._draw_period_header(canvas, 0)
         self._redraw_visible_rows(canvas)
         self.root.after_idle(lambda target=canvas: self._redraw_visible_rows(target))
 
@@ -5776,7 +5820,7 @@ Set how often you are paid, the payday your balances belong to, and the extra yo
 Add each balance, rate, minimum payment, and due day. Current Balance is what remains on the payday now in effect, after that day's minimum, interest, and any extra entered on the Pay Schedule. Rank 1 gets the extra payment first. Drag a row, or use Move Up and Move Down, to change that order. When a debt is paid off, its minimum joins the extra for the debts still open.
 
 3. Pay Schedule
-Each row is one payday. Double-click a row to record an extra for that day. Archive Completed Pay Periods files past paydays. Those rows stay under Archives and do not change later.
+Each row is one payday. The column titles stay in place while you scroll. Double-click a row to record an extra for that day. Archive Completed Pay Periods files past paydays. Those rows stay under Archives and do not change later.
 
 4. Overview, Charts, and Interest
 Overview is the snapshot: balances, payoff dates, and debt-to-income. Charts and Interest compare extra payments in rank order with minimum payments only.
