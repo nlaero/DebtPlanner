@@ -17,3 +17,5 @@ dist-*/
 # Older compiled installers. The current setup file is kept so it can be downloaded.
 installer/**/*.exe
 !installer/Version 2.x/DebtPayoffPlannerSetup-2.2.exe
+packaging/debian/*.deb
+!packaging/debian/debt-payoff-planner_2.2-1_all.deb
