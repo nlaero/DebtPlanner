@@ -79,7 +79,7 @@ DEFAULT_SETTINGS = {
 }
 
 APP_NAME = "Debt Payoff Planner"
-APP_VERSION = "2.1"
+APP_VERSION = "2.2"
 # Startup and File → Check for Updates compare this with version.txt on main.
 GITHUB_REPO = "https://github.com/nlaero/DebtPlanner"
 UPDATE_VERSION_URL = "https://raw.githubusercontent.com/nlaero/DebtPlanner/main/version.txt"

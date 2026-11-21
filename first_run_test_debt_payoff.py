@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-FIRST_RUN_TEST_VERSION = "2.1"
+FIRST_RUN_TEST_VERSION = "2.2"
 # Snapshot of debt_payoff_app.py for first-install testing.
 # Every launch clears a private data folder and starts like a new installation.
 # Edit debt_payoff_app.py for program changes. This file is replaced when a new
@@ -25,7 +25,10 @@ from datetime import timedelta
 from copy import deepcopy
 import os
 import sys
+import threading
 import time
+import urllib.request
+import webbrowser
 
 # Windows keeps Segoe UI. Linux does not ship that face, so the same
 # tuples would fall back to a mismatched font and change the layout.
@@ -81,7 +84,63 @@ DEFAULT_SETTINGS = {
 }
 
 APP_NAME = "Debt Payoff Planner"
-APP_VERSION = "2.1"
+APP_VERSION = "2.2"
+# Startup and File → Check for Updates compare this with version.txt on main.
+GITHUB_REPO = "https://github.com/nlaero/DebtPlanner"
+UPDATE_VERSION_URL = "https://raw.githubusercontent.com/nlaero/DebtPlanner/main/version.txt"
+
+
+def parse_version(text):
+    """Dot-separated numbers, such as 2.1 or 2.1.1. Anything else is not a version."""
+    raw = str(text or "").strip()
+    if not raw:
+        return None
+    token = raw.splitlines()[0].strip()
+    if not token or len(token) > 20 or token[0] == "." or token[-1] == "." or ".." in token:
+        return None
+    parts = []
+    for piece in token.split("."):
+        if not piece.isdigit():
+            return None
+        parts.append(int(piece))
+    return tuple(parts)
+
+
+def version_is_newer(remote, local):
+    remote_parts = parse_version(remote)
+    local_parts = parse_version(local)
+    if not remote_parts or not local_parts:
+        return False
+    width = max(len(remote_parts), len(local_parts))
+    remote_parts += (0,) * (width - len(remote_parts))
+    local_parts += (0,) * (width - len(local_parts))
+    return remote_parts > local_parts
+
+
+def update_page_url(version):
+    parsed = parse_version(version)
+    if not parsed:
+        return GITHUB_REPO + "#install"
+    token = ".".join(str(part) for part in parsed)
+    if sys.platform.startswith("win"):
+        return (
+            "https://github.com/nlaero/DebtPlanner/raw/main/installer/Version%202.x/"
+            f"DebtPayoffPlannerSetup-{token}.exe"
+        )
+    return GITHUB_REPO + "#install"
+
+
+def fetch_published_version(timeout=8):
+    request = urllib.request.Request(
+        UPDATE_VERSION_URL,
+        headers={"User-Agent": "DebtPayoffPlanner", "Cache-Control": "no-cache"},
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        payload = response.read(80)
+    text = payload.decode("utf-8", errors="replace")
+    if parse_version(text) is None:
+        raise ValueError("GitHub did not return a version number.")
+    return text.strip().splitlines()[0].strip()
 
 # Light is the original palette. Dark follows the slate theme, with a few
 # extra shades so amounts and chart lines stay readable.
@@ -2825,6 +2884,8 @@ class DebtPayoffApp:
         file_menu.add_command(label="Undo", command=self.undo)
         file_menu.add_command(label="Redo", command=self.redo)
         file_menu.add_separator()
+        file_menu.add_command(label="Check for Updates", command=lambda: self.check_for_updates(interactive=True))
+        file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.confirm_close)
 
         help_menu = tk.Menu(
@@ -4924,6 +4985,8 @@ class DebtPayoffApp:
         grid = model["grid"]
         if not rows or cell_h <= 0:
             canvas._period_hits = []
+            if self._period_header_sticks(canvas):
+                self._draw_period_header(canvas, view_top)
             return
         first = max(0, int((view_top - header_h) / cell_h) - 1)
         last = min(len(rows), int((view_bottom - header_h) / cell_h) + 2)
@@ -4965,11 +5028,56 @@ class DebtPayoffApp:
                 left += width
                 canvas.create_line(left, band_top, left, band_bottom, fill=grid, tags="period-row")
         canvas._period_hits = hits
+        if self._period_header_sticks(canvas):
+            self._draw_period_header(canvas, view_top)
+
+    def _period_header_sticks(self, canvas):
+        """Pay Schedule titles stay at the top of the view. Archives keep a scrolling title."""
+        return canvas in (
+            getattr(self, "sched_canvas", None),
+            getattr(self, "sched_frozen_canvas", None),
+        )
+
+    def _draw_period_header(self, canvas, top):
+        model = getattr(canvas, "_period_model", None)
+        if not model or not model.get("headers"):
+            return
+        canvas.delete("period-header")
+        header_h = model["header_h"]
+        total_w = model["total_w"]
+        pad_x = model["pad_x"]
+        bar = model["bar"]
+        canvas.create_rectangle(
+            0, top, total_w, top + header_h,
+            fill=model["header_bg"], outline="", tags=("period", "period-header"),
+        )
+        left = 0
+        text_y = top + (header_h - bar) / 2
+        for spec in model["headers"]:
+            width = spec["width"]
+            text_x, text_anchor = self._text_anchor_x(left, width, pad_x, spec["anchor"])
+            canvas.create_text(
+                text_x, text_y, text=spec["title"], anchor=text_anchor,
+                fill=model["header_fg"], font=model["header_font"],
+                tags=("period", "period-header"),
+            )
+            left += width
+        if bar:
+            canvas.create_rectangle(
+                0, top + header_h - bar, total_w, top + header_h,
+                fill=model["bar_color"], outline="", tags=("period", "period-header"),
+            )
+        canvas.tag_raise("period-header")
 
     def _on_period_canvas_double(self, event):
         canvas = event.widget
         x = canvas.canvasx(event.x)
         y = canvas.canvasy(event.y)
+        if self._period_header_sticks(canvas):
+            model = getattr(canvas, "_period_model", None) or {}
+            header_h = model.get("header_h") or 0
+            if y < canvas.canvasy(0) + header_h:
+                return
         for left, top, right, bottom, callback in getattr(canvas, "_period_hits", ()):
             if callback and left <= x < right and top <= y < bottom:
                 callback()
@@ -5020,20 +5128,6 @@ class DebtPayoffApp:
         total_w = max(sum(widths), 1)
         total_h = header_h + cell_h * max(len(rows), 0)
         header_bg = COLORS["button_secondary"] if metrics["prominent"] else COLORS["header_bg"]
-        canvas.create_rectangle(0, 0, total_w, header_h, fill=header_bg, outline="", tags="period")
-        left = 0
-        for width, spec in zip(widths, columns):
-            text_x, text_anchor = self._text_anchor_x(left, width, pad_x, spec["header_anchor"])
-            canvas.create_text(
-                text_x, (header_h - metrics["bar"]) / 2, text=spec["title"], anchor=text_anchor,
-                fill=COLORS["header_fg"], font=metrics["header_spec"], tags="period",
-            )
-            left += width
-        if metrics["bar"]:
-            canvas.create_rectangle(
-                0, header_h - metrics["bar"], total_w, header_h,
-                fill=COLORS["tab_line"], outline="", tags="period",
-            )
         grid = COLORS["gridline"] if COLORS.get("gridline_on") else ""
         canvas._period_model = {
             "widths": widths,
@@ -5043,11 +5137,22 @@ class DebtPayoffApp:
             "total_w": total_w,
             "pad_x": pad_x,
             "grid": grid,
+            "headers": [
+                {"title": spec["title"], "anchor": spec.get("header_anchor", "w"), "width": width}
+                for width, spec in zip(widths, columns)
+            ],
+            "header_bg": header_bg,
+            "header_fg": COLORS["header_fg"],
+            "header_font": metrics["header_spec"],
+            "bar": metrics["bar"],
+            "bar_color": COLORS["tab_line"],
         }
         canvas._period_hits = []
         size = (total_w, max(total_h, 1))
         self._store_period_size(canvas, size)
         canvas.configure(scrollregion=(0, 0, size[0], size[1]))
+        if not self._period_header_sticks(canvas):
+            self._draw_period_header(canvas, 0)
         self._redraw_visible_rows(canvas)
         self.root.after_idle(lambda target=canvas: self._redraw_visible_rows(target))
 
@@ -5349,14 +5454,92 @@ class DebtPayoffApp:
         self.status_var.set("Started blank")
 
     def _startup_prompts(self):
-        if self.current_file:
-            return
-        if os.path.isfile(self._own_marker_path()):
+        if self.current_file or os.path.isfile(self._own_marker_path()):
+            self._schedule_update_check()
             return
         if os.path.isfile(self._sample_marker_path()):
             self._open_sample_plan()
+            self._schedule_update_check()
             return
         self._prompt_first_plan()
+        self._schedule_update_check()
+
+    def _schedule_update_check(self):
+        try:
+            if self.root.winfo_exists():
+                self.root.after(400, lambda: self.check_for_updates(interactive=False))
+        except tk.TclError:
+            return
+
+    def check_for_updates(self, interactive=False):
+        """Ask GitHub which version is published. Startup stays quiet unless a newer one exists."""
+        if getattr(self, "_update_check_running", False):
+            if interactive:
+                self.status_var.set("Already checking for updates")
+            return
+        self._update_check_running = True
+        self._update_result = None
+        if interactive:
+            self.status_var.set("Checking GitHub for updates...")
+        token = object()
+        self._update_token = token
+
+        def work():
+            remote = None
+            error = None
+            try:
+                remote = fetch_published_version()
+            except Exception:
+                error = "Could not reach GitHub to check for updates."
+            if getattr(self, "_update_token", None) is token:
+                self._update_result = (remote, error, interactive)
+
+        def poll():
+            if getattr(self, "_update_token", None) is not token:
+                return
+            try:
+                if not self.root.winfo_exists():
+                    self._update_check_running = False
+                    return
+            except tk.TclError:
+                self._update_check_running = False
+                return
+            result = self._update_result
+            if result is None:
+                self.root.after(100, poll)
+                return
+            self._update_result = None
+            self._update_check_running = False
+            remote, error, asked = result
+            self._show_update_result(remote, error, asked)
+
+        threading.Thread(target=work, daemon=True).start()
+        self.root.after(100, poll)
+
+    def _show_update_result(self, remote, error, interactive):
+        if error or not remote:
+            if interactive:
+                messagebox.showwarning("Check for Updates", error or "Could not read the version on GitHub.", parent=self.root)
+                self.status_var.set("Update check failed")
+            return
+        if version_is_newer(remote, APP_VERSION):
+            self.status_var.set(f"Version {remote} is available")
+            if sys.platform.startswith("win"):
+                prompt = (
+                    f"Version {remote} is available. You have version {APP_VERSION}.\n\n"
+                    "Download the installer now? Your saved plan stays on this computer."
+                )
+            else:
+                prompt = (
+                    f"Version {remote} is available. You have version {APP_VERSION}.\n\n"
+                    "Open the install page for your system?"
+                )
+            if messagebox.askyesno("Update available", prompt, default=messagebox.NO, parent=self.root):
+                webbrowser.open(update_page_url(remote))
+            return
+        if interactive:
+            messagebox.showinfo("Check for Updates", f"You have the latest version ({APP_VERSION}).", parent=self.root)
+            self.status_var.set(f"Version {APP_VERSION} is up to date")
 
     def _prompt_first_plan(self):
         choice = self._plan_choice_dialog()
@@ -5781,13 +5964,15 @@ Set how often you are paid, the payday your balances belong to, and the extra yo
 Add each balance, rate, minimum payment, and due day. Current Balance is what remains on the payday now in effect, after that day's minimum, interest, and any extra entered on the Pay Schedule. Rank 1 gets the extra payment first. Drag a row, or use Move Up and Move Down, to change that order. When a debt is paid off, its minimum joins the extra for the debts still open.
 
 3. Pay Schedule
-Each row is one payday. Double-click a row to record an extra for that day. Archive Completed Pay Periods files past paydays. Those rows stay under Archives and do not change later.
+Each row is one payday. The column titles stay in place while you scroll. Double-click a row to record an extra for that day. Archive Completed Pay Periods files past paydays. Those rows stay under Archives and do not change later.
 
 4. Overview, Charts, and Interest
 Overview is the snapshot: balances, payoff dates, and debt-to-income. Charts and Interest compare extra payments in rank order with minimum payments only.
 
 5. Saving
 File → Save stores the plan and opens it next time. A sample plan is view only. Create your own plan, or use Save As, when you are ready to edit.
+
+The program checks GitHub for a newer version when it opens. File → Check for Updates checks again.
 
 Interest each payday is the balance times the annual rate, divided by the number of pay periods in a year.
 """
