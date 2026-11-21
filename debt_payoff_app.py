@@ -20,7 +20,10 @@ from datetime import timedelta
 from copy import deepcopy
 import os
 import sys
+import threading
 import time
+import urllib.request
+import webbrowser
 
 # Windows keeps Segoe UI. Linux does not ship that face, so the same
 # tuples would fall back to a mismatched font and change the layout.
@@ -77,6 +80,62 @@ DEFAULT_SETTINGS = {
 
 APP_NAME = "Debt Payoff Planner"
 APP_VERSION = "2.1"
+# Startup and File → Check for Updates compare this with version.txt on main.
+GITHUB_REPO = "https://github.com/nlaero/DebtPlanner"
+UPDATE_VERSION_URL = "https://raw.githubusercontent.com/nlaero/DebtPlanner/main/version.txt"
+
+
+def parse_version(text):
+    """Dot-separated numbers, such as 2.1 or 2.1.1. Anything else is not a version."""
+    raw = str(text or "").strip()
+    if not raw:
+        return None
+    token = raw.splitlines()[0].strip()
+    if not token or len(token) > 20 or token[0] == "." or token[-1] == "." or ".." in token:
+        return None
+    parts = []
+    for piece in token.split("."):
+        if not piece.isdigit():
+            return None
+        parts.append(int(piece))
+    return tuple(parts)
+
+
+def version_is_newer(remote, local):
+    remote_parts = parse_version(remote)
+    local_parts = parse_version(local)
+    if not remote_parts or not local_parts:
+        return False
+    width = max(len(remote_parts), len(local_parts))
+    remote_parts += (0,) * (width - len(remote_parts))
+    local_parts += (0,) * (width - len(local_parts))
+    return remote_parts > local_parts
+
+
+def update_page_url(version):
+    parsed = parse_version(version)
+    if not parsed:
+        return GITHUB_REPO + "#install"
+    token = ".".join(str(part) for part in parsed)
+    if sys.platform.startswith("win"):
+        return (
+            "https://github.com/nlaero/DebtPlanner/raw/main/installer/Version%202.x/"
+            f"DebtPayoffPlannerSetup-{token}.exe"
+        )
+    return GITHUB_REPO + "#install"
+
+
+def fetch_published_version(timeout=8):
+    request = urllib.request.Request(
+        UPDATE_VERSION_URL,
+        headers={"User-Agent": "DebtPayoffPlanner", "Cache-Control": "no-cache"},
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        payload = response.read(80)
+    text = payload.decode("utf-8", errors="replace")
+    if parse_version(text) is None:
+        raise ValueError("GitHub did not return a version number.")
+    return text.strip().splitlines()[0].strip()
 
 # Light is the original palette. Dark follows the slate theme, with a few
 # extra shades so amounts and chart lines stay readable.
@@ -2820,6 +2879,8 @@ class DebtPayoffApp:
         file_menu.add_command(label="Undo", command=self.undo)
         file_menu.add_command(label="Redo", command=self.redo)
         file_menu.add_separator()
+        file_menu.add_command(label="Check for Updates", command=lambda: self.check_for_updates(interactive=True))
+        file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.confirm_close)
 
         help_menu = tk.Menu(
@@ -5388,14 +5449,92 @@ class DebtPayoffApp:
         self.status_var.set("Started blank")
 
     def _startup_prompts(self):
-        if self.current_file:
-            return
-        if os.path.isfile(self._own_marker_path()):
+        if self.current_file or os.path.isfile(self._own_marker_path()):
+            self._schedule_update_check()
             return
         if os.path.isfile(self._sample_marker_path()):
             self._open_sample_plan()
+            self._schedule_update_check()
             return
         self._prompt_first_plan()
+        self._schedule_update_check()
+
+    def _schedule_update_check(self):
+        try:
+            if self.root.winfo_exists():
+                self.root.after(400, lambda: self.check_for_updates(interactive=False))
+        except tk.TclError:
+            return
+
+    def check_for_updates(self, interactive=False):
+        """Ask GitHub which version is published. Startup stays quiet unless a newer one exists."""
+        if getattr(self, "_update_check_running", False):
+            if interactive:
+                self.status_var.set("Already checking for updates")
+            return
+        self._update_check_running = True
+        self._update_result = None
+        if interactive:
+            self.status_var.set("Checking GitHub for updates...")
+        token = object()
+        self._update_token = token
+
+        def work():
+            remote = None
+            error = None
+            try:
+                remote = fetch_published_version()
+            except Exception:
+                error = "Could not reach GitHub to check for updates."
+            if getattr(self, "_update_token", None) is token:
+                self._update_result = (remote, error, interactive)
+
+        def poll():
+            if getattr(self, "_update_token", None) is not token:
+                return
+            try:
+                if not self.root.winfo_exists():
+                    self._update_check_running = False
+                    return
+            except tk.TclError:
+                self._update_check_running = False
+                return
+            result = self._update_result
+            if result is None:
+                self.root.after(100, poll)
+                return
+            self._update_result = None
+            self._update_check_running = False
+            remote, error, asked = result
+            self._show_update_result(remote, error, asked)
+
+        threading.Thread(target=work, daemon=True).start()
+        self.root.after(100, poll)
+
+    def _show_update_result(self, remote, error, interactive):
+        if error or not remote:
+            if interactive:
+                messagebox.showwarning("Check for Updates", error or "Could not read the version on GitHub.", parent=self.root)
+                self.status_var.set("Update check failed")
+            return
+        if version_is_newer(remote, APP_VERSION):
+            self.status_var.set(f"Version {remote} is available")
+            if sys.platform.startswith("win"):
+                prompt = (
+                    f"Version {remote} is available. You have version {APP_VERSION}.\n\n"
+                    "Download the installer now? Your saved plan stays on this computer."
+                )
+            else:
+                prompt = (
+                    f"Version {remote} is available. You have version {APP_VERSION}.\n\n"
+                    "Open the install page for your system?"
+                )
+            if messagebox.askyesno("Update available", prompt, default=messagebox.NO, parent=self.root):
+                webbrowser.open(update_page_url(remote))
+            return
+        if interactive:
+            messagebox.showinfo("Check for Updates", f"You have the latest version ({APP_VERSION}).", parent=self.root)
+            self.status_var.set(f"Version {APP_VERSION} is up to date")
 
     def _prompt_first_plan(self):
         choice = self._plan_choice_dialog()
@@ -5827,6 +5966,8 @@ Overview is the snapshot: balances, payoff dates, and debt-to-income. Charts and
 
 5. Saving
 File → Save stores the plan and opens it next time. A sample plan is view only. Create your own plan, or use Save As, when you are ready to edit.
+
+The program checks GitHub for a newer version when it opens. File → Check for Updates checks again.
 
 Interest each payday is the balance times the annual rate, divided by the number of pay periods in a year.
 """

@@ -68,6 +68,8 @@ Help → How to Use shows this same short guide inside the program.
 4. **Overview, Charts, and Interest.** Overview is the snapshot: balances, payoff dates, and debt-to-income. Charts and Interest compare extra payments in rank order with minimum payments only.
 5. **Saving.** File → Save stores the plan and opens it next time.
 
+The program checks GitHub when it opens. If a newer version is listed, it offers the download. File → Check for Updates runs that check again. On Windows, Yes downloads the installer and the saved plan stays on the computer. On Linux, Yes opens the install section of this page.
+
 Interest each payday is the balance times the annual rate, divided by the number of pay periods in a year.
 
 ## Tabs
@@ -86,4 +88,5 @@ Interest each payday is the balance times the annual rate, divided by the number
 - **Open, Save, Save As** — plans are JSON files.
 - **Export Schedule to Excel** and **Export Archives to Excel**.
 - **Undo** and **Redo**.
+- **Check for Updates** — compare this copy with the version published on GitHub.
 - **Exit**.
