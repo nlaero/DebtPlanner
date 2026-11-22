@@ -79,7 +79,7 @@ DEFAULT_SETTINGS = {
 }
 
 APP_NAME = "Debt Payoff Planner"
-APP_VERSION = "2.2"
+APP_VERSION = "2.21"
 # Startup and File → Check for Updates compare this with version.txt on main.
 GITHUB_REPO = "https://github.com/nlaero/DebtPlanner"
 UPDATE_VERSION_URL = "https://raw.githubusercontent.com/nlaero/DebtPlanner/main/version.txt"
@@ -286,6 +286,14 @@ def _section_title_chrome():
     return band, ink, rule
 
 
+def _section_note_color():
+    """Subtitle on the title band. Light mode uses a pale line on the navy bar."""
+    band, _ink, _rule = _section_title_chrome()
+    if band.lower() == COLORS["bg"].lower():
+        return COLORS["text_muted"]
+    return "#d6e4f0"
+
+
 class AppFrame(ctk.CTkFrame):
     """Page and row frame. padding insets it the way a ttk frame did."""
 
@@ -310,7 +318,7 @@ class AppFrame(ctk.CTkFrame):
 class AppSection(ctk.CTkFrame):
     """Titled card. This object is the body; grid and pack place the outer card."""
 
-    def __init__(self, master, text="", padding=10, style=None, **kwargs):
+    def __init__(self, master, text="", padding=10, style=None, note="", **kwargs):
         self.shell = ctk.CTkFrame(
             master,
             fg_color=COLORS["surface"],
@@ -334,6 +342,21 @@ class AppSection(ctk.CTkFrame):
         )
         title._role = "section"
         title.pack(fill="x", padx=12, pady=(6, 0))
+        self._title_note = None
+        if note:
+            note_label = ctk.CTkLabel(
+                band,
+                text=note,
+                font=ui_font(12),
+                text_color=_section_note_color(),
+                fg_color="transparent",
+                anchor="w",
+                justify="left",
+                height=18,
+            )
+            note_label._role = "section_note"
+            note_label.pack(fill="x", padx=12, pady=(0, 0))
+            self._title_note = note_label
         rule = ctk.CTkFrame(band, fg_color=rule_color, height=3, corner_radius=2)
         rule._role = "section_rule"
         rule.pack(fill="x", padx=12, pady=(4, 8))
@@ -2609,6 +2632,8 @@ class DebtPayoffApp:
                 widget.configure(fg_color=_section_title_chrome()[0])
             elif role == "section":
                 widget.configure(text_color=_section_title_chrome()[1])
+            elif role == "section_note":
+                widget.configure(text_color=_section_note_color())
             elif role == "section_rule":
                 widget.configure(fg_color=_section_title_chrome()[2])
             elif isinstance(widget, AppLabel):
@@ -3420,7 +3445,13 @@ class DebtPayoffApp:
         tables.grid_columnconfigure(1, weight=1, uniform="overview_tables")
         tables.grid_rowconfigure(0, weight=1)
 
-        debtor = AppSection(tables, text="Debt by Debtor", style="Overview.TLabelframe", padding=10)
+        debtor = AppSection(
+            tables,
+            text="Debt by Debtor",
+            note="Payoff Date with Estimated Snowball Payments",
+            style="Overview.TLabelframe",
+            padding=10,
+        )
         debtor.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
         self.overview_debtor_sheet = self._pack_sheet(debtor)
         self.overview_debtor = debtor
@@ -5962,7 +5993,7 @@ Add each balance, rate, minimum payment, and due day. Current Balance is what re
 Each row is one payday. The column titles stay in place while you scroll. Double-click a row to record an extra for that day. Archive Completed Pay Periods files past paydays. Those rows stay under Archives and do not change later.
 
 4. Overview, Charts, and Interest
-Overview is the snapshot: balances, payoff dates, and debt-to-income. Charts and Interest compare extra payments in rank order with minimum payments only.
+Overview is the snapshot: balances, payoff dates, and debt-to-income. Debt by Debtor labels its payoff date as the date with estimated snowball payments. Charts and Interest compare extra payments in rank order with minimum payments only.
 
 5. Saving
 File → Save stores the plan and opens it next time. A sample plan is view only. Create your own plan, or use Save As, when you are ready to edit.

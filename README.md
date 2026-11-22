@@ -1,6 +1,6 @@
 # Debt Payoff Planner
 
-Desktop planner for payoff dates, extra payments, and interest. Version 2.2.
+Desktop planner for payoff dates, extra payments, and interest. Version 2.21.
 
 Your saved plan stays on your computer. It is not included in this repository.
 
@@ -8,7 +8,7 @@ Your saved plan stays on your computer. It is not included in this repository.
 
 ### Windows
 
-Download and run [DebtPayoffPlannerSetup-2.2.exe](installer/Version%202.x/DebtPayoffPlannerSetup-2.2.exe).
+Download and run [DebtPayoffPlannerSetup-2.21.exe](installer/Version%202.x/DebtPayoffPlannerSetup-2.21.exe).
 
 It installs Debt Payoff Planner for Windows and replaces an older copy of this program. Your last saved plan is kept.
 
@@ -23,7 +23,7 @@ sh packaging/debian/install.sh
 Or, without cloning the whole project:
 
 ```sh
-curl -L -o debt-payoff-planner.deb https://github.com/nlaero/DebtPlanner/raw/main/packaging/debian/debt-payoff-planner_2.2-1_all.deb
+curl -L -o debt-payoff-planner.deb https://github.com/nlaero/DebtPlanner/raw/main/packaging/debian/debt-payoff-planner_2.21-1_all.deb
 sudo apt install ./debt-payoff-planner.deb
 ```
 
@@ -65,7 +65,7 @@ Help → How to Use shows this same short guide inside the program.
 1. **Settings.** Set how often you are paid, the payday your balances belong to, and the extra you can add each payday. Yearly take-home pay is optional. It feeds the income and debt-to-income figures on Overview.
 2. **Debts.** Add each balance, rate, minimum payment, and due day. Current Balance is what remains on the payday now in effect, after that day's minimum, interest, and any extra entered on the Pay Schedule. Rank 1 gets the extra payment first. Drag a row, or use Move Up and Move Down, to change that order. When a debt is paid off, its minimum joins the extra for the debts still open.
 3. **Pay Schedule.** Each row is one payday. The column titles stay in place while you scroll. Double-click a row to record an extra for that day. Archive Completed Pay Periods files past paydays. Those rows stay under Archives and do not change later.
-4. **Overview, Charts, and Interest.** Overview is the snapshot: balances, payoff dates, and debt-to-income. Charts and Interest compare extra payments in rank order with minimum payments only.
+4. **Overview, Charts, and Interest.** Overview is the snapshot: balances, payoff dates, and debt-to-income. Debt by Debtor labels its payoff date as the date with estimated snowball payments. Charts and Interest compare extra payments in rank order with minimum payments only.
 5. **Saving.** File → Save stores the plan and opens it next time.
 
 The program checks GitHub when it opens. If a newer version is listed, it offers the download. File → Check for Updates runs that check again. On Windows, Yes downloads the installer and the saved plan stays on the computer. On Linux, Yes opens the install section of this page.
