@@ -1,6 +1,6 @@
 # Debt Payoff Planner
 
-Desktop planner for payoff dates, extra payments, and interest. Version 2.21.
+Desktop planner for payoff dates, extra payments, and interest. Version 2.22.
 
 Your saved plan stays on your computer. It is not included in this repository.
 
@@ -8,7 +8,7 @@ Your saved plan stays on your computer. It is not included in this repository.
 
 ### Windows
 
-Download and run [DebtPayoffPlannerSetup-2.21.exe](installer/Version%202.x/DebtPayoffPlannerSetup-2.21.exe).
+Download and run [DebtPayoffPlannerSetup-2.22.exe](installer/Version%202.x/DebtPayoffPlannerSetup-2.22.exe).
 
 It installs Debt Payoff Planner for Windows and replaces an older copy of this program. Your last saved plan is kept.
 
@@ -23,7 +23,7 @@ sh packaging/debian/install.sh
 Or, without cloning the whole project:
 
 ```sh
-curl -L -o debt-payoff-planner.deb https://github.com/nlaero/DebtPlanner/raw/main/packaging/debian/debt-payoff-planner_2.21-1_all.deb
+curl -L -o debt-payoff-planner.deb https://github.com/nlaero/DebtPlanner/raw/main/packaging/debian/debt-payoff-planner_2.22-1_all.deb
 sudo apt install ./debt-payoff-planner.deb
 ```
 
@@ -68,7 +68,7 @@ Help → How to Use shows this same short guide inside the program.
 4. **Overview, Charts, and Interest.** Overview is the snapshot: balances, payoff dates, and debt-to-income. Debt by Debtor labels its payoff date as the date with estimated snowball payments. Charts and Interest compare extra payments in rank order with minimum payments only.
 5. **Saving.** File → Save stores the plan and opens it next time.
 
-The program checks GitHub when it opens. If a newer version is listed, it offers the download. File → Check for Updates runs that check again. On Windows, Yes downloads the installer and the saved plan stays on the computer. On Linux, Yes opens the install section of this page.
+The program checks GitHub when it opens. If a newer version is listed, it asks whether to install it. File → Check for Updates runs that check again. Yes downloads the installer and starts it in the program. A browser is not used. The program closes while the installer runs, then the new version opens. Your saved plan stays on the computer. On Linux, Yes downloads the Debian package and starts that installer.
 
 Interest each payday is the balance times the annual rate, divided by the number of pay periods in a year.
 

@@ -8,14 +8,14 @@
 AppId={{7C4E9A21-5B18-4F6D-A3E0-91D2C8B64F17}
 SetupIconFile=debt_payoff.ico
 AppName=Debt Payoff Planner
-AppVersion=2.21
-VersionInfoVersion=2.21.0.0
+AppVersion=2.22
+VersionInfoVersion=2.22.0.0
 AppPublisher=Debt Payoff Planner
 DefaultDirName={autopf}\Debt Payoff Planner
 DefaultGroupName=Debt Payoff Planner
 DisableProgramGroupPage=yes
 OutputDir=installer\Version 2.x
-OutputBaseFilename=DebtPayoffPlannerSetup-2.21
+OutputBaseFilename=DebtPayoffPlannerSetup-2.22
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -30,7 +30,7 @@ SetupLogging=no
 
 [Files]
 Source: "debt_payoff.ico"; DestDir: "{app}"; Flags: ignoreversion
-Source: "dist-2.21b\Debt Payoff Planner\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dist-2.22\Debt Payoff Planner\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "refresh_icons.ps1"; Flags: dontcopy
 
 [Icons]
@@ -38,7 +38,7 @@ Name: "{group}\Debt Payoff Planner"; Filename: "{app}\Debt Payoff Planner.exe"; 
 Name: "{autodesktop}\Debt Payoff Planner"; Filename: "{app}\Debt Payoff Planner.exe"; WorkingDir: "{app}"; IconFilename: "{app}\debt_payoff.ico"; IconIndex: 0
 
 [Run]
-Filename: "{app}\Debt Payoff Planner.exe"; Description: "Launch Debt Payoff Planner"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\Debt Payoff Planner.exe"; Description: "Launch Debt Payoff Planner"; Flags: nowait postinstall
 
 [Code]
 function ExePath: String;

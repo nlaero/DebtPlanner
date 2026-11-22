@@ -19,11 +19,12 @@ import datetime
 from datetime import timedelta
 from copy import deepcopy
 import os
+import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.request
-import webbrowser
 
 # Windows keeps Segoe UI. Linux does not ship that face, so the same
 # tuples would fall back to a mismatched font and change the layout.
@@ -79,7 +80,7 @@ DEFAULT_SETTINGS = {
 }
 
 APP_NAME = "Debt Payoff Planner"
-APP_VERSION = "2.21"
+APP_VERSION = "2.22"
 # Startup and File → Check for Updates compare this with version.txt on main.
 GITHUB_REPO = "https://github.com/nlaero/DebtPlanner"
 UPDATE_VERSION_URL = "https://raw.githubusercontent.com/nlaero/DebtPlanner/main/version.txt"
@@ -112,17 +113,99 @@ def version_is_newer(remote, local):
     return remote_parts > local_parts
 
 
-def update_page_url(version):
+def installer_download_url(version):
+    """Direct installer for this computer. The version text is only digits and dots."""
     parsed = parse_version(version)
     if not parsed:
-        return GITHUB_REPO + "#install"
+        return None
     token = ".".join(str(part) for part in parsed)
     if sys.platform.startswith("win"):
         return (
             "https://github.com/nlaero/DebtPlanner/raw/main/installer/Version%202.x/"
             f"DebtPayoffPlannerSetup-{token}.exe"
         )
-    return GITHUB_REPO + "#install"
+    return (
+        "https://github.com/nlaero/DebtPlanner/raw/main/packaging/debian/"
+        f"debt-payoff-planner_{token}-1_all.deb"
+    )
+
+
+def installer_download_path(version):
+    parsed = parse_version(version)
+    if not parsed:
+        return None
+    token = ".".join(str(part) for part in parsed)
+    if sys.platform.startswith("win"):
+        name = f"DebtPayoffPlannerSetup-{token}.exe"
+    else:
+        name = f"debt-payoff-planner_{token}-1_all.deb"
+    return os.path.join(tempfile.gettempdir(), name)
+
+
+def installer_file_is_valid(path, final_name=None):
+    """Reject an error page saved under the installer name."""
+    try:
+        size = os.path.getsize(path)
+        with open(path, "rb") as handle:
+            magic = handle.read(8)
+    except OSError:
+        return False
+    if size < 100_000:
+        return False
+    name = str(final_name or path).lower()
+    if name.endswith(".exe"):
+        return magic.startswith(b"MZ")
+    if name.endswith(".deb"):
+        return magic.startswith(b"!<arch>")
+    return False
+
+
+def download_published_installer(version, dest, progress=None, timeout=120):
+    url = installer_download_url(version)
+    if not url or not dest:
+        raise ValueError("That version does not have an installer.")
+    request = urllib.request.Request(url, headers={"User-Agent": "DebtPayoffPlanner"})
+    partial = dest + ".part"
+    got = 0
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        total = int(response.headers.get("Content-Length") or 0)
+        with open(partial, "wb") as handle:
+            while True:
+                chunk = response.read(64 * 1024)
+                if not chunk:
+                    break
+                handle.write(chunk)
+                got += len(chunk)
+                if progress:
+                    progress(got, total)
+    if not installer_file_is_valid(partial, dest):
+        try:
+            os.remove(partial)
+        except OSError:
+            pass
+        raise ValueError("The downloaded file was not the installer.")
+    os.replace(partial, dest)
+    return dest
+
+
+def launch_downloaded_installer(path):
+    """Start the installer and return once it has been handed to the system."""
+    if sys.platform.startswith("win"):
+        import ctypes
+        result = ctypes.windll.shell32.ShellExecuteW(
+            None,
+            "open",
+            path,
+            "/SILENT /SUPPRESSMSGBOXES /NORESTART",
+            None,
+            1,
+        )
+        return int(result) > 32
+    try:
+        subprocess.Popen(["pkexec", "apt-get", "install", "-y", path])
+    except OSError:
+        return False
+    return True
 
 
 def fetch_published_version(timeout=8):
@@ -5550,22 +5633,123 @@ class DebtPayoffApp:
             return
         if version_is_newer(remote, APP_VERSION):
             self.status_var.set(f"Version {remote} is available")
-            if sys.platform.startswith("win"):
-                prompt = (
-                    f"Version {remote} is available. You have version {APP_VERSION}.\n\n"
-                    "Download the installer now? Your saved plan stays on this computer."
-                )
-            else:
-                prompt = (
-                    f"Version {remote} is available. You have version {APP_VERSION}.\n\n"
-                    "Open the install page for your system?"
-                )
+            prompt = (
+                f"Version {remote} is available. You have version {APP_VERSION}.\n\n"
+                "Download and install it now? This program will close while the installer runs. "
+                "Your saved plan stays on this computer."
+            )
             if messagebox.askyesno("Update available", prompt, default=messagebox.NO, parent=self.root):
-                webbrowser.open(update_page_url(remote))
+                self._install_published_update(remote)
             return
         if interactive:
             messagebox.showinfo("Check for Updates", f"You have the latest version ({APP_VERSION}).", parent=self.root)
             self.status_var.set(f"Version {APP_VERSION} is up to date")
+
+    def _save_before_update(self):
+        if not self._has_unsaved_changes():
+            return True
+        answer = messagebox.askyesnocancel(
+            "Unsaved Changes",
+            "Save changes to your plan before installing the update?",
+            parent=self.root,
+        )
+        if answer is None:
+            return False
+        if answer and not self.save_file():
+            return False
+        return True
+
+    def _install_published_update(self, version):
+        """Download the published installer and hand it to the system. No browser."""
+        if getattr(self, "_update_installing", False):
+            return
+        if not installer_download_url(version):
+            messagebox.showerror("Update", "That version does not have an installer.", parent=self.root)
+            return
+        if not self._save_before_update():
+            return
+        self._update_installing = True
+        win = ctk.CTkToplevel(self.root)
+        self._prepare_dialog(win)
+        win.title("Installing update")
+        win.geometry("480x170")
+        win.configure(fg_color=COLORS["bg"])
+        win.transient(self.root)
+        AppLabel(win, text=f"Downloading version {version}...", wraplength=430).pack(padx=20, pady=(24, 8), anchor="w")
+        detail = AppLabel(win, text="Starting the download.", style="OverviewCaption.TLabel")
+        detail.pack(padx=20, anchor="w")
+        cancelled = {"value": False}
+
+        def cancel():
+            cancelled["value"] = True
+            self._update_installing = False
+            try:
+                win.destroy()
+            except tk.TclError:
+                pass
+
+        AppButton(win, text="Cancel", style="secondary", command=cancel).pack(pady=16)
+        win.protocol("WM_DELETE_WINDOW", cancel)
+        state = {"got": 0, "total": 0, "error": None, "done": False, "path": None}
+
+        def progress(got, total):
+            state["got"] = got
+            state["total"] = total
+
+        def work():
+            try:
+                dest = installer_download_path(version)
+                download_published_installer(version, dest, progress=progress)
+                state["path"] = dest
+            except Exception:
+                state["error"] = "The update could not be downloaded."
+            state["done"] = True
+
+        def poll():
+            if cancelled["value"]:
+                return
+            try:
+                if not win.winfo_exists():
+                    self._update_installing = False
+                    return
+            except tk.TclError:
+                self._update_installing = False
+                return
+            got = state["got"]
+            total = state["total"]
+            if total:
+                detail.configure(text=f"{got / 1048576:.1f} MB of {total / 1048576:.1f} MB")
+            elif got:
+                detail.configure(text=f"{got / 1048576:.1f} MB downloaded")
+            if not state["done"]:
+                win.after(150, poll)
+                return
+            self._update_installing = False
+            path = state["path"]
+            error = state["error"]
+            try:
+                win.destroy()
+            except tk.TclError:
+                pass
+            if cancelled["value"]:
+                return
+            if error or not path:
+                messagebox.showerror("Update", error or "The update could not be downloaded.", parent=self.root)
+                self.status_var.set("Update download failed")
+                return
+            if not launch_downloaded_installer(path):
+                messagebox.showerror(
+                    "Update",
+                    "The installer downloaded, but it could not be started.\n\n" + path,
+                    parent=self.root,
+                )
+                self.status_var.set("Update installer did not start")
+                return
+            self.status_var.set("Installing the update. This program will close.")
+            self.root.after(400, self.root.destroy)
+
+        threading.Thread(target=work, daemon=True).start()
+        win.after(150, poll)
 
     def _prompt_first_plan(self):
         choice = self._plan_choice_dialog()
@@ -5998,7 +6182,7 @@ Overview is the snapshot: balances, payoff dates, and debt-to-income. Debt by De
 5. Saving
 File → Save stores the plan and opens it next time. A sample plan is view only. Create your own plan, or use Save As, when you are ready to edit.
 
-The program checks GitHub for a newer version when it opens. File → Check for Updates checks again.
+The program checks GitHub for a newer version when it opens. File → Check for Updates checks again. Yes downloads and installs that version. The program closes while the installer runs, and your saved plan stays on this computer.
 
 Interest each payday is the balance times the annual rate, divided by the number of pay periods in a year.
 """
